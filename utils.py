@@ -122,7 +122,7 @@ with open('input_data/channel_info.pkl', 'rb') as f:
     channel_info = pickle.load(f)
 
 slack_token = getenv('MY_SLACK_KEY')
-sc = SlackClient(slack_token)
+# sc = SlackClient(slack_token)
 user_id = 'U0L26L3FE'
 
 user_dict = {i['id']: i['profile']['display_name']

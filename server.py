@@ -45,31 +45,30 @@ def process_pred(sentence, channel, user):
     return y_cols[np.argmax(pred)].split('emoji_')[-1]
 
 
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
-    if slack_client.rtm_connect():
-        while True:
-            events = slack_client.rtm_read()
-            for event in events:
-                if ('channel' in event and 'text' in event and event.get('type') == 'message'):
-                    channel = channel_mapping.get(event['channel'], 'london')
-                    text = event['text']
-                    user = user_dict.get(event['user'], 'donovan.thompson')
+logging.basicConfig(level=logging.DEBUG)
+if slack_client.rtm_connect():
+    while True:
+        events = slack_client.rtm_read()
+        for event in events:
+            if ('channel' in event and 'text' in event and event.get('type') == 'message'):
+                channel = channel_mapping.get(event['channel'], 'london')
+                text = event['text']
+                user = user_dict.get(event['user'], 'donovan.thompson')
 
-                    msg_text = sub_user(text)
-                    clean_msg = text_to_wordlist(msg_text)
+                msg_text = sub_user(text)
+                clean_msg = text_to_wordlist(msg_text)
 
-                    logging.debug(" Prepdicting for comment: %s \n channel: %s \n user: % s" % (clean_msg, channel, user))
-                    prediction = process_pred(clean_msg, channel, user)
-                    logging.debug(" Result: %s" % prediction)
+                logging.debug(" Prepdicting for comment: %s \n channel: %s \n user: % s" % (clean_msg, channel, user))
+                prediction = process_pred(clean_msg, channel, user)
+                logging.debug(" Result: %s" % prediction)
 
-                    post = slack_client.api_call(
-                        'reactions.add',
-                        channel=event['channel'],
-                        name=prediction,
-                        timestamp=event['ts']
-                    )
+                post = slack_client.api_call(
+                    'reactions.add',
+                    channel=event['channel'],
+                    name=prediction,
+                    timestamp=event['ts']
+                )
 
-            time.sleep(1)
-    else:
-        print('Connection failed, invalid token?')
+        time.sleep(1)
+else:
+    print('Connection failed, invalid token?')
