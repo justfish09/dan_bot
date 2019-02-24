@@ -2,6 +2,7 @@ numpy==1.16.1
 sklearn
 pandas
 keras==2.2.4
+tensorflow
 slackclient
 vaderSentiment
 nltk
