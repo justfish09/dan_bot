@@ -47,7 +47,7 @@ def process_pred(sentence, channel, user):
 
 
 logging.basicConfig(level=logging.DEBUG)
-connection = slack_client.rtm_connect(auto_reconnect=True)
+connection = slack_client.rtm_connect()
 if connection:
     logging.debug("the connection is %s" % connection)
     while True:
@@ -77,6 +77,6 @@ if connection:
             time.sleep(1)
         except WebSocketConnectionClosedException as e:
             logger.error('Caught websocket disconnect, reconnecting...')
-            slack_client.rtm_connect(auto_reconnect=True)
+            # slack_client.rtm_connect(auto_reconnect=True)
 else:
     print('Connection failed, invalid token?')
