@@ -6,3 +6,4 @@ tensorflow
 slackclient==1.3.0
 vaderSentiment
 nltk
+websocket-client==0.54.0
