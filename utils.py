@@ -110,7 +110,10 @@ def sub_user(text):
 
 
 def encoder_predict(enconder, text):
-    arg = np.array([text]).reshape(-1, 1)
+    if text in enconder.classes_:
+        arg = np.array([text]).reshape(-1, 1)
+    else:
+        arg = np.array([enconder.classes_[0]]).reshape(-1, 1)
     return enconder.transform(arg)
 
 
