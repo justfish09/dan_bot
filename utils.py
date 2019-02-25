@@ -104,7 +104,8 @@ def sub_user(text):
     user_tags = re.findall(r"<@.*?>", text)
     if user_tags:
         for user in user_tags:
-            text = re.sub(user, user_dict[user[2:-1]], text)
+            user_name = user_dict.get(user[2:-1], 'unknown')
+            text = re.sub(user, user_name, text)
     return text
 
 
