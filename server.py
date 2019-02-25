@@ -10,6 +10,8 @@ from os import getenv
 import pickle
 import logging
 
+from websocket import WebSocketConnectionClosedException
+
 
 from utils import f1, text_to_wordlist
 from utils import clean_reaction, sub_user, encoder_predict, user_dict, channel_mapping
@@ -18,7 +20,6 @@ from utils import clean_reaction, sub_user, encoder_predict, user_dict, channel_
 keras.metrics.f1 = f1
 
 dan_bot_token = getenv('DAN_BOT_KEY')
-print('token', dan_bot_token)
 slack_client = SlackClient(dan_bot_token)
 
 # model and vectorizers
@@ -46,32 +47,36 @@ def process_pred(sentence, channel, user):
 
 
 logging.basicConfig(level=logging.DEBUG)
-connection = slack_client.rtm_connect()
+connection = slack_client.rtm_connect(auto_reconnect=True)
 if connection:
     logging.debug("the connection is %s" % connection)
     while True:
-        events = slack_client.rtm_read()
-        logging.debug("events are: %s" % events)
-        for event in events:
-            if ('channel' in event and 'text' in event and event.get('type') == 'message'):
-                channel = channel_mapping.get(event['channel'], 'london')
-                text = event['text']
-                user = user_dict.get(event['user'], 'donovan.thompson')
+        try:
+            events = slack_client.rtm_read()
+            logging.debug("events are: %s" % events)
+            for event in events:
+                if ('channel' in event and 'text' in event and event.get('type') == 'message'):
+                    channel = channel_mapping.get(event['channel'], 'london')
+                    text = event['text']
+                    user = user_dict.get(event['user'], 'donovan.thompson')
 
-                msg_text = sub_user(text)
-                clean_msg = text_to_wordlist(msg_text)
+                    msg_text = sub_user(text)
+                    clean_msg = text_to_wordlist(msg_text)
 
-                logging.debug(" Prepdicting for comment: %s \n channel: %s \n user: % s" % (clean_msg, channel, user))
-                prediction = process_pred(clean_msg, channel, user)
-                logging.debug(" Result: %s" % prediction)
+                    logging.debug(" Prepdicting for comment: %s \n channel: %s \n user: % s" % (clean_msg, channel, user))
+                    prediction = process_pred(clean_msg, channel, user)
+                    logging.debug(" Result: %s" % prediction)
 
-                post = slack_client.api_call(
-                    'reactions.add',
-                    channel=event['channel'],
-                    name=prediction,
-                    timestamp=event['ts']
-                )
+                    post = slack_client.api_call(
+                        'reactions.add',
+                        channel=event['channel'],
+                        name=prediction,
+                        timestamp=event['ts']
+                    )
 
-        time.sleep(1)
+            time.sleep(1)
+        except WebSocketConnectionClosedException as e:
+            logger.error('Caught websocket disconnect, reconnecting...')
+            slack_client.rtm_connect(auto_reconnect=True)
 else:
     print('Connection failed, invalid token?')
