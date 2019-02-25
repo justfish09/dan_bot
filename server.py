@@ -37,12 +37,13 @@ if connection:
                     prediction = process_pred(clean_msg, channel, user)
                     logging.debug(" Result: %s" % prediction)
 
-                    post = slack_client.api_call(
-                        'reactions.add',
-                        channel=event['channel'],
-                        name=prediction,
-                        timestamp=event['ts']
-                    )
+                    for emoji in prediction:
+                        slack_client.api_call(
+                            'reactions.add',
+                            channel=event['channel'],
+                            name=emoji,
+                            timestamp=event['ts']
+                        )
 
             time.sleep(1)
         except WebSocketConnectionClosedException as e:
