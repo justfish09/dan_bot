@@ -70,7 +70,7 @@ if connection:
 
                     if previous_reaction == 'joy' and prediction == 'joy':
                         continue
-                    else
+                    else:
                         post = slack_client.api_call(
                             'reactions.add',
                             channel=event['channel'],
