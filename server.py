@@ -45,6 +45,7 @@ def process_pred(sentence, channel, user):
     pred = model.predict(new_x)
     return y_cols[np.argmax(pred)].split('emoji_')[-1]
 
+previous_reaction = ''
 
 logging.basicConfig(level=logging.DEBUG)
 connection = slack_client.rtm_connect()
@@ -67,12 +68,17 @@ if connection:
                     prediction = process_pred(clean_msg, channel, user)
                     logging.debug(" Result: %s" % prediction)
 
-                    post = slack_client.api_call(
-                        'reactions.add',
-                        channel=event['channel'],
-                        name=prediction,
-                        timestamp=event['ts']
-                    )
+                    if previous_reaction == 'joy' and prediction == 'joy':
+                        continue
+                    else
+                        post = slack_client.api_call(
+                            'reactions.add',
+                            channel=event['channel'],
+                            name=prediction,
+                            timestamp=event['ts']
+                        )
+
+                        previous_reaction = prediction
 
             time.sleep(1)
         except WebSocketConnectionClosedException as e:
