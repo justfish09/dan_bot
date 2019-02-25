@@ -1,13 +1,105 @@
 import re
-from os import getenv
-from string import punctuation
 import pickle
 import numpy as np
+
+import keras.metrics
+
+from os import getenv
+from string import punctuation
 
 from slackclient import SlackClient
 from nltk.corpus import stopwords
 from nltk.stem import SnowballStemmer
 from keras import backend as K
+from keras.models import load_model
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
+
+def f1(y_true, y_pred):
+    def recall(y_true, y_pred):
+        """Recall metric.
+
+        Only computes a batch-wise average of recall.
+
+        Computes the recall, a metric for multi-label classification of
+        how many relevant items are selected.
+        """
+        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+        possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
+        recall = true_positives / (possible_positives + K.epsilon())
+        return recall
+
+    def precision(y_true, y_pred):
+        """Precision metric.
+
+        Only computes a batch-wise average of precision.
+
+        Computes the precision, a metric for multi-label classification of
+        how many selected items are relevant.
+        """
+        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+        predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
+        precision = true_positives / (predicted_positives + K.epsilon())
+        return precision
+    precision = precision(y_true, y_pred)
+    recall = recall(y_true, y_pred)
+    return 2*((precision*recall)/(precision+recall+K.epsilon()))
+
+
+keras.metrics.f1 = f1
+model = load_model('my_model.h5')
+
+analyser = SentimentIntensityAnalyzer()
+
+
+def sentiment_transform(x):
+    as_dict = analyser.polarity_scores(x)
+    return [as_dict['neg'], as_dict['neu'], as_dict['pos']]
+
+
+with open('input_data/tfidf.pickle', 'rb') as f:
+    vectorizer = pickle.load(f)
+
+with open("input_data/channel_enc.pickle", "rb")as f:
+    channel_encoder = pickle.load(f)
+
+with open("input_data/user_enc.pickle", "rb") as f:
+    user_encoder = pickle.load(f)
+
+with open("input_data/y_cols.pickle", "rb")as f:
+    y_cols = pickle.load(f)
+
+
+def process_pred_specified_models(
+    sentence,
+    channel,
+    user,
+    vectorizer,
+    channel_encoder,
+    user_encoder,
+    y_cols):
+    xpred = vectorizer.transform([sentence])
+    new_x = np.concatenate(
+        (
+            xpred.toarray(),
+            np.array([sentiment_transform(sentence)]),
+            encoder_predict(channel_encoder, channel),
+            encoder_predict(user_encoder, user)
+        ), axis=1)
+    pred = model.predict(new_x)[0]
+    return [col_name.split('emoji_')[-1] for col_name, score in zip(y_cols, pred) if score > 0.05]
+
+
+def process_pred(sentence, channel, user):
+    return process_pred_specified_models(
+        sentence,
+        channel,
+        user,
+        vectorizer,
+        channel_encoder,
+        user_encoder,
+        y_cols
+    )
 
 
 def text_to_wordlist(text, remove_stopwords=False, stem_words=False):
@@ -63,37 +155,6 @@ def text_to_wordlist(text, remove_stopwords=False, stem_words=False):
 
     # Return a list of words
     return(text)
-
-
-def f1(y_true, y_pred):
-    def recall(y_true, y_pred):
-        """Recall metric.
-
-        Only computes a batch-wise average of recall.
-
-        Computes the recall, a metric for multi-label classification of
-        how many relevant items are selected.
-        """
-        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-        possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
-        recall = true_positives / (possible_positives + K.epsilon())
-        return recall
-
-    def precision(y_true, y_pred):
-        """Precision metric.
-
-        Only computes a batch-wise average of precision.
-
-        Computes the precision, a metric for multi-label classification of
-        how many selected items are relevant.
-        """
-        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-        predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
-        precision = true_positives / (predicted_positives + K.epsilon())
-        return precision
-    precision = precision(y_true, y_pred)
-    recall = recall(y_true, y_pred)
-    return 2*((precision*recall)/(precision+recall+K.epsilon()))
 
 
 def clean_reaction(reaction):
