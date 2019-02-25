@@ -46,9 +46,12 @@ def process_pred(sentence, channel, user):
 
 
 logging.basicConfig(level=logging.DEBUG)
-if slack_client.rtm_connect():
+connection = slack_client.rtm_connect()
+if connection:
+    logging.debug("the connection is %s" % connection)
     while True:
         events = slack_client.rtm_read()
+        logging.debug("events are: %s" % events)
         for event in events:
             if ('channel' in event and 'text' in event and event.get('type') == 'message'):
                 channel = channel_mapping.get(event['channel'], 'london')
