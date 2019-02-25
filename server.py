@@ -25,25 +25,28 @@ if connection:
             events = slack_client.rtm_read()
             logging.debug("events are: %s" % events)
             for event in events:
-                if ('channel' in event and 'text' in event and event.get('type') == 'message'):
-                    channel = channel_mapping.get(event['channel'], 'london')
-                    text = event['text']
-                    user = user_dict.get(event['user'], 'donovan.thompson')
+                try:
+                    if ('channel' in event and 'text' in event and event.get('type') == 'message'):
+                        channel = channel_mapping.get(event['channel'], 'london')
+                        text = event['text']
+                        user = user_dict.get(event['user'], 'donovan.thompson')
 
-                    msg_text = sub_user(text)
-                    clean_msg = text_to_wordlist(msg_text)
+                        msg_text = sub_user(text)
+                        clean_msg = text_to_wordlist(msg_text)
 
-                    logging.debug(" Predicting for comment: %s \n channel: %s \n user: % s" % (clean_msg, channel, user))
-                    prediction = process_pred(clean_msg, channel, user)
-                    logging.debug(" Result: %s" % prediction)
+                        logging.debug(" Predicting for comment: %s \n channel: %s \n user: % s" % (clean_msg, channel, user))
+                        prediction = process_pred(clean_msg, channel, user)
+                        logging.debug(" Result: %s" % prediction)
 
-                    for emoji in prediction:
-                        slack_client.api_call(
-                            'reactions.add',
-                            channel=event['channel'],
-                            name=emoji,
-                            timestamp=event['ts']
-                        )
+                        for emoji in prediction:
+                            slack_client.api_call(
+                                'reactions.add',
+                                channel=event['channel'],
+                                name=emoji,
+                                timestamp=event['ts']
+                            )
+                except Exception:
+                    logging.exception('Failed to proccess event')
 
             time.sleep(1)
         except WebSocketConnectionClosedException as e:
