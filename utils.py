@@ -6,6 +6,7 @@ import keras.metrics
 
 from os import getenv
 from string import punctuation
+from random import random
 
 from slackclient import SlackClient
 from nltk.corpus import stopwords
@@ -87,11 +88,15 @@ def process_pred_specified_models(
             encoder_predict(user_encoder, user)
         ), axis=1)
     pred = model.predict(new_x)[0]
-    return [col_name.split('emoji_')[-1] for col_name, score in zip(y_cols, pred) if score > 0.05]
+    return sorted([
+            (col_name.split('emoji_')[-1], score)
+            for col_name, score in zip(y_cols, pred)
+            if score > 0.05
+    ], key=lambda x: x[1])
 
 
 def process_pred(sentence, channel, user):
-    return process_pred_specified_models(
+    return [emoji for emoji, score in process_pred_specified_models(
         sentence,
         channel,
         user,
@@ -99,7 +104,7 @@ def process_pred(sentence, channel, user):
         channel_encoder,
         user_encoder,
         y_cols
-    )
+    ) if score > random()]
 
 
 def text_to_wordlist(text, remove_stopwords=False, stem_words=False):
