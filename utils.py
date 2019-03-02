@@ -141,7 +141,7 @@ def text_to_wordlist(text, remove_stopwords=False, stem_words=False):
 
 
 def clean_reaction(reaction):
-    return re.sub(r"::skin-tone.*\d$", "", reaction)
+    return re.sub(r"::skin-tone.*\d$|_\d", "", reaction)
 
 
 def sub_user(text):
