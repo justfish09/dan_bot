@@ -1,6 +1,7 @@
 import re
 import pickle
 import numpy as np
+import logging
 
 import keras.metrics
 
@@ -8,6 +9,7 @@ from os import getenv
 from string import punctuation
 
 from slackclient import SlackClient
+import boto3
 from nltk.corpus import stopwords
 from nltk.stem import SnowballStemmer
 from keras import backend as K
@@ -46,38 +48,19 @@ def f1(y_true, y_pred):
     return 2*((precision*recall)/(precision+recall+K.epsilon()))
 
 
-keras.metrics.f1 = f1
-model = load_model('my_model.h5')
-
-analyser = SentimentIntensityAnalyzer()
-
-
 def sentiment_transform(x):
     as_dict = analyser.polarity_scores(x)
     return [as_dict['neg'], as_dict['neu'], as_dict['pos']]
 
 
-with open('input_data/tfidf.pickle', 'rb') as f:
-    vectorizer = pickle.load(f)
-
-with open("input_data/channel_enc.pickle", "rb")as f:
-    channel_encoder = pickle.load(f)
-
-with open("input_data/user_enc.pickle", "rb") as f:
-    user_encoder = pickle.load(f)
-
-with open("input_data/y_cols.pickle", "rb")as f:
-    y_cols = pickle.load(f)
-
-
 def process_pred_specified_models(
-    sentence,
-    channel,
-    user,
-    vectorizer,
-    channel_encoder,
-    user_encoder,
-    y_cols):
+        sentence,
+        channel,
+        user,
+        vectorizer,
+        channel_encoder,
+        user_encoder,
+        y_cols):
     xpred = vectorizer.transform([sentence])
     new_x = np.concatenate(
         (
@@ -178,19 +161,51 @@ def encoder_predict(enconder, text):
     return enconder.transform(arg)
 
 
-# user list
-with open('input_data/users.pkl', 'rb') as f:
-    user_list = pickle.load(f)
+def load_pickle(file_name):
+    try:
+        with open(file_name, 'rb') as f:
+            return pickle.load(f)
+    except FileNotFoundError:
+        logging.debug("file: %s not found, trying from s3 bucket" % file_name)
+        try:
+            s3_client.download_file(aws_bucket, file_name, file_name)
+            logging.debug("file: %s downloaded!" % file_name)
+            load_pickle(file_name)
+        except Exception as e:
+            print(e)
 
-# channel list
-with open('input_data/channel_info.pkl', 'rb') as f:
-    channel_info = pickle.load(f)
+
+aws_id = getenv('DAN_BOT_AWS_ID')
+aws_key = getenv('DAN_BOT_AWS_KEY')
+aws_bucket = getenv('DAN_BOT_BUCKET')
 
 slack_token = getenv('MY_SLACK_KEY')
-# sc = SlackClient(slack_token)
+
+s3_client = boto3.client('s3', aws_access_key_id=aws_id,
+                         aws_secret_access_key=aws_key)
+
+vectorizer = load_pickle('input_data/tfidf.pickle')
+channel_encoder = load_pickle("input_data/channel_enc.pickle")
+user_encoder = load_pickle("input_data/user_enc.pickle")
+y_cols = load_pickle("input_data/y_cols.pickle")
+user_list = load_pickle('input_data/users.pkl')
+channel_info = load_pickle('input_data/channel_info.pkl')
+
+model_file = 'my_model.h5'
+
+try:
+    model = load_model(model_file)
+except Exception as e:
+    s3_client.download_file(aws_bucket, model_file, model_file)
+    model = load_model(model_file)
+
+analyser = SentimentIntensityAnalyzer()
+keras.metrics.f1 = f1
+
 user_id = 'U0L26L3FE'
 
 user_dict = {i['id']: i['profile']['display_name']
              for i in user_list['members']}
+
 channel_mapping = {channel['channel']['id']: channel['channel']['name']
                    for channel in channel_info if 'channel' in channel}
