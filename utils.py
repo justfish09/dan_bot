@@ -191,6 +191,7 @@ y_cols = load_pickle("input_data/y_cols.pickle")
 user_list = load_pickle('input_data/users.pkl')
 channel_info = load_pickle('input_data/channel_info.pkl')
 
+keras.metrics.f1 = f1
 model_file = 'my_model.h5'
 
 try:
@@ -200,7 +201,6 @@ except Exception as e:
     model = load_model(model_file)
 
 analyser = SentimentIntensityAnalyzer()
-keras.metrics.f1 = f1
 
 user_id = 'U0L26L3FE'
 
