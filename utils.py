@@ -170,7 +170,7 @@ def load_pickle(file_name):
         try:
             s3_client.download_file(aws_bucket, file_name, file_name)
             logging.debug("file: %s downloaded!" % file_name)
-            load_pickle(file_name)
+            return load_pickle(file_name)
         except Exception as e:
             print(e)
 
