@@ -5,7 +5,7 @@ import logging
 
 import keras.metrics
 
-from os import getenv
+from os import getenv, makedirs
 from string import punctuation
 from random import random
 
@@ -168,6 +168,7 @@ def encoder_predict(enconder, text):
 
 def load_pickle(file_name):
     try:
+        makedirs('input_data', exist_ok=True)
         with open(file_name, 'rb') as f:
             return pickle.load(f)
     except FileNotFoundError:
