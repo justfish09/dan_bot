@@ -4,7 +4,7 @@ In honour of the most prolific emojifier we have, this project serves to pay hom
 
 This project uses a sample of roughly 5500 comments vectorized using TF-IDF to train a smallish, very overfitted, neural network. Other features include: the channel the message appeared in as well as the identity of the sender.
 
-Full analysis and code can be found in the [notebook](Basic Classifier.ipynb)
+Full analysis and code can be found in the [notebook](https://github.com/justfish09/dan_bot/blob/master/Basic%20Classifier.ipynb)
 
 
 
