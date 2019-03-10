@@ -2,20 +2,21 @@ import re
 import pickle
 import numpy as np
 import logging
-
 import keras.metrics
+
 
 from os import getenv, makedirs
 from string import punctuation
 from random import random
 
-from slackclient import SlackClient
-import boto3
+
 from nltk.corpus import stopwords
 from nltk.stem import SnowballStemmer
 from keras import backend as K
 from keras.models import load_model
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
+from s3_client import s3_client, aws_bucket
 
 
 def f1(y_true, y_pred):
@@ -180,15 +181,6 @@ def load_pickle(file_name):
         except Exception as e:
             print(e)
 
-
-aws_id = getenv('DAN_BOT_AWS_ID')
-aws_key = getenv('DAN_BOT_AWS_KEY')
-aws_bucket = getenv('DAN_BOT_BUCKET')
-
-slack_token = getenv('MY_SLACK_KEY')
-
-s3_client = boto3.client('s3', aws_access_key_id=aws_id,
-                         aws_secret_access_key=aws_key)
 
 vectorizer = load_pickle('input_data/tfidf.pickle')
 channel_encoder = load_pickle("input_data/channel_enc.pickle")

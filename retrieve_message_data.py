@@ -1,7 +1,7 @@
 from operator import itemgetter
 import pickle
-from utils import sc as slack_client, user_id
-
+from utils import user_id
+from slack_client import slack_client
 
 def retrieve_reaction_data(user_id):
     current_page = 1
