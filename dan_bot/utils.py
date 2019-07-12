@@ -3,11 +3,13 @@ import pickle
 import numpy as np
 import logging
 import keras.metrics
+import os
 
 
 from os import getenv, makedirs
 from string import punctuation
 from random import random
+from pathlib import Path
 
 
 from nltk.corpus import stopwords
@@ -18,6 +20,10 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 from s3_client import s3_client, aws_bucket
 
+
+analyser = SentimentIntensityAnalyzer()
+
+user_id = 'U0L26L3FE'
 
 def f1(y_true, y_pred):
     def recall(y_true, y_pred):
@@ -80,16 +86,16 @@ def process_pred_specified_models(
     ], key=lambda x: x[1])
 
 
-def process_pred(sentence, channel, user):
+def process_pred(sentence, channel, user, model_class):
     return [emoji for emoji, score in process_pred_specified_models(
         sentence,
         channel,
         user,
-        model,
-        vectorizer,
-        channel_encoder,
-        user_encoder,
-        y_cols
+        model_class.load_classifier(),
+        model_class.vectorizer(),
+        model_class.channel_encoder(),
+        model_class.user_encoder(),
+        model_class.emoji_labels()
     ) if score > random()]
 
 
@@ -152,7 +158,7 @@ def clean_reaction(reaction):
     return re.sub(r"::skin-tone.*\d$|_\d", "", reaction)
 
 
-def sub_user(text):
+def sub_user(text, user_dict):
     user_tags = re.findall(r"<@.*?>", text)
     if user_tags:
         for user in user_tags:
@@ -171,8 +177,10 @@ def encoder_predict(enconder, text):
 
 def load_pickle(file_name):
     try:
-        makedirs('input_data', exist_ok=True)
-        with open(file_name, 'rb') as f:
+        mod_path = Path(__file__).parent
+        path_to_file = (mod_path / '../input_data').resolve()
+        makedirs(path_to_file, exist_ok=True)
+        with open(path_to_file / file_name, 'rb') as f:
             return pickle.load(f)
     except FileNotFoundError:
         logging.debug("file: %s not found, trying from s3 bucket" % file_name)
@@ -183,29 +191,4 @@ def load_pickle(file_name):
         except Exception as e:
             print(e)
 
-
-vectorizer = load_pickle('input_data/tfidf.pickle')
-channel_encoder = load_pickle("input_data/channel_enc.pickle")
-user_encoder = load_pickle("input_data/user_enc.pickle")
-y_cols = load_pickle("input_data/y_cols.pickle")
-user_list = load_pickle('input_data/users.pkl')
-channel_info = load_pickle('input_data/channel_info.pkl')
-
 keras.metrics.f1 = f1
-model_file = 'my_model.h5'
-
-try:
-    model = load_model(model_file)
-except Exception as e:
-    s3_client.download_file(aws_bucket, model_file, model_file)
-    model = load_model(model_file)
-
-analyser = SentimentIntensityAnalyzer()
-
-user_id = 'U0L26L3FE'
-
-user_dict = {i['id']: i['profile']['display_name']
-             for i in user_list['members']}
-
-channel_mapping = {channel['channel']['id']: channel['channel']['name']
-                   for channel in channel_info if 'channel' in channel}

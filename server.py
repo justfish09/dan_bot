@@ -37,8 +37,8 @@ if connection:
                 except Exception:
                     logging.exception('Failed to proccess event')
 
-            time.sleep(1)
+            time.sleep(2)
         except WebSocketConnectionClosedException as e:
-            logger.error('Caught websocket disconnect, reconnecting...')
+            logging.error('Caught websocket disconnect, reconnecting...')
 else:
     print('Connection failed, invalid token?')
