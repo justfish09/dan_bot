@@ -26,14 +26,18 @@ def connect_and_listen(model_class):
                 for event in events:
                     try:
                         if ('channel' in event and 'text' in event and event.get('type') == 'message'):
-                            channel = model_class.channel_mapping().get(event['channel'], 'london')
-                            user = model_class.user_dict().get(event['user'], 'donovan.thompson')
+                            channel = model_class.channel_mapping().get(
+                                event['channel'], 'london')
+                            user = model_class.user_dict().get(event.get('user', ''), 'richardf')
 
-                            msg_text = sub_user(event['text'], model_class.user_dict())
+                            msg_text = sub_user(
+                                event['text'], model_class.user_dict())
                             clean_msg = text_to_wordlist(msg_text)
 
-                            logging.debug("Predicting for comment: %s \n channel: %s \n user: % s" % (clean_msg, channel, user))
-                            prediction = process_pred(clean_msg, channel, user, model_class)
+                            logging.debug("Predicting for comment: %s \n channel: %s \n user: % s" % (
+                                clean_msg, channel, user))
+                            prediction = process_pred(
+                                clean_msg, channel, user, model_class)
                             logging.debug("Result: %s" % prediction)
 
                             for emoji in prediction:
@@ -43,7 +47,7 @@ def connect_and_listen(model_class):
                         logging.error(e)
                         logging.exception('Failed to proccess event')
 
-                time.sleep(2)
+                time.sleep(1)
             except WebSocketConnectionClosedException as e:
                 logging.error('Caught websocket disconnect, reconnecting...')
     else:
@@ -53,8 +57,8 @@ def connect_and_listen(model_class):
 def main():
     logging.basicConfig(level=logging.DEBUG)
     model_class = NnClassifier()
-    # model = model_class.load_classifier()
     return connect_and_listen(model_class)
+
 
 if __name__ == '__main__':
     main()
