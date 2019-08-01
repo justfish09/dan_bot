@@ -1,1 +1,1 @@
-worker: python brainbox/app.py
+worker: python dan_bot/app.py
