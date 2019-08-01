@@ -145,7 +145,7 @@ class NnClassifier(object):
         print(model.metrics_names)
 
         batch_size = 64
-        epochs = 3
+        epochs = 35
 
         print(model.summary())
 
@@ -190,7 +190,6 @@ class NnClassifier(object):
             mod_path = Path(__file__).parent
             path_to_file = (mod_path / '../input_data')
             s3_client = S3Client()
-            import pdb; pdb.set_trace()
             s3_client.client().upload_file(str((path_to_file / self.vectorizer_path).resolve()), s3_client.aws_bucket, 'input_data/' + self.vectorizer_path)
             s3_client.client().upload_file(str((path_to_file / self.channel_encoder_path).resolve()), s3_client.aws_bucket, 'input_data/' + self.channel_encoder_path)
             s3_client.client().upload_file(str((path_to_file / self.user_encoder_path).resolve()), s3_client.aws_bucket, 'input_data/' + self.user_encoder_path)
