@@ -3,20 +3,27 @@ import pickle
 import numpy as np
 import logging
 import keras.metrics
+import pandas as pd
 
 
-from os import getenv, makedirs
-from string import punctuation
+from os import makedirs
 from random import random
+from pathlib import Path
+from collections import defaultdict
+from operator import itemgetter
 
 
 from nltk.corpus import stopwords
 from nltk.stem import SnowballStemmer
 from keras import backend as K
-from keras.models import load_model
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
-from s3_client import s3_client, aws_bucket
+from s3_client import S3Client
+
+
+analyser = SentimentIntensityAnalyzer()
+
+user_id = 'U0L26L3FE'
 
 
 def f1(y_true, y_pred):
@@ -50,6 +57,9 @@ def f1(y_true, y_pred):
     return 2*((precision*recall)/(precision+recall+K.epsilon()))
 
 
+keras.metrics.f1 = f1
+
+
 def sentiment_transform(x):
     as_dict = analyser.polarity_scores(x)
     return [as_dict['neg'], as_dict['neu'], as_dict['pos']]
@@ -74,23 +84,23 @@ def process_pred_specified_models(
         ), axis=1)
     pred = model.predict(new_x)[0]
     return sorted([
-            (col_name.split('emoji_')[-1], score)
-            for col_name, score in zip(y_cols, pred)
-            if score > 0.05
+        (col_name.split('emoji_')[-1], score)
+        for col_name, score in zip(y_cols, pred)
+        if score > 0.05
     ], key=lambda x: x[1])
 
 
-def process_pred(sentence, channel, user):
+def process_pred(sentence, channel, user, model_class):
     return [emoji for emoji, score in process_pred_specified_models(
         sentence,
         channel,
         user,
-        model,
-        vectorizer,
-        channel_encoder,
-        user_encoder,
-        y_cols
-    ) if score > random()]
+        model_class.load_classifier(),
+        model_class.vectorizer(),
+        model_class.channel_encoder(),
+        model_class.user_encoder(),
+        model_class.emoji_labels()
+    ) if score > random() / 1.5]
 
 
 def text_to_wordlist(text, remove_stopwords=False, stem_words=False):
@@ -152,7 +162,7 @@ def clean_reaction(reaction):
     return re.sub(r"::skin-tone.*\d$|_\d", "", reaction)
 
 
-def sub_user(text):
+def sub_user(text, user_dict):
     user_tags = re.findall(r"<@.*?>", text)
     if user_tags:
         for user in user_tags:
@@ -169,43 +179,86 @@ def encoder_predict(enconder, text):
     return enconder.transform(arg)
 
 
+def save_pickle(obj, file_name):
+    mod_path = Path(__file__).parent
+    path_to_file = (mod_path / '../input_data').resolve()
+    makedirs(path_to_file, exist_ok=True)
+    with open(path_to_file / file_name, 'wb') as f:
+        pickle.dump(obj, f)
+
+
 def load_pickle(file_name):
     try:
-        makedirs('input_data', exist_ok=True)
-        with open(file_name, 'rb') as f:
+        mod_path = Path(__file__).parent
+        path_to_file = (mod_path / '../input_data').resolve()
+        makedirs(path_to_file, exist_ok=True)
+        with open(path_to_file / file_name, 'rb') as f:
             return pickle.load(f)
     except FileNotFoundError:
         logging.debug("file: %s not found, trying from s3 bucket" % file_name)
         try:
-            s3_client.download_file(aws_bucket, file_name, file_name)
-            logging.debug("file: %s downloaded!" % file_name)
+            s3_client = S3Client()
+            s3_client.resource().Bucket(
+                s3_client.aws_bucket).download_file(
+                'input_data/' + file_name, str(path_to_file / file_name))
+
+            logging.debug("file: %s downloaded!" % (path_to_file / file_name))
             return load_pickle(file_name)
         except Exception as e:
             print(e)
 
 
-vectorizer = load_pickle('input_data/tfidf.pickle')
-channel_encoder = load_pickle("input_data/channel_enc.pickle")
-user_encoder = load_pickle("input_data/user_enc.pickle")
-y_cols = load_pickle("input_data/y_cols.pickle")
-user_list = load_pickle('input_data/users.pkl')
-channel_info = load_pickle('input_data/channel_info.pkl')
+def process_pkl(channel_mapping, user_dict):
+    mod_path = Path(__file__).parent
+    path_to_file = (mod_path / '../input_data/dan_bot_messages.pkl').resolve()
+    with open(path_to_file, 'rb') as f:
+        message_list = pickle.load(f)
+        print('number of msgs loaded: ', len(message_list))
 
-keras.metrics.f1 = f1
-model_file = 'my_model.h5'
+    store = {}
+    emoji_count = defaultdict(int)
 
-try:
-    model = load_model(model_file)
-except Exception as e:
-    s3_client.download_file(aws_bucket, model_file, model_file)
-    model = load_model(model_file)
+    for msg in message_list:
+        try:
+            if 'message' in msg:
+                msg_type, msg_info, channel = itemgetter(
+                    'type', 'message', 'channel')(msg)
+                msg_info_type, msg_text, msg_reactions, msg_time = itemgetter(
+                    'type', 'text', 'reactions', 'ts')(msg['message'])
+                if 'message' in msg and msg_text.strip != '':
+                    msg_text = sub_user(msg_text, user_dict)
+                    clean_msg = text_to_wordlist(msg_text)
+                    store[clean_msg] = {}
+                    store[clean_msg]['reactions'] = [clean_reaction(reaction['name']) for reaction in msg_reactions if (
+                        user_id in reaction['users'] or 'U144M1H4Z' in reaction['users'])]
+                    store[clean_msg]['time'] = msg_time
+                    store[clean_msg]['type'] = 'message'
+                    store[clean_msg]['joined_reactions'] = '|'.join(
+                        store[clean_msg]['reactions'])
+                    store[clean_msg]['channel'] = channel
+                    store[clean_msg]['type'] = msg['type']
+                    if 'user' in msg['message']:
+                        store[clean_msg]['user'] = msg['message']['user']
+                    elif 'bot_id' in msg['message']:
+                        store[clean_msg]['user'] = msg['message']['bot_id']
+                    for emoji in store[clean_msg]:
+                        emoji_count[emoji] += 1
+            elif 'file' in msg:
+                continue
+        except Exception as e:
+            print(e)
 
-analyser = SentimentIntensityAnalyzer()
+    long_store = []
+    for k, v in store.items():
+        for reaction in v['reactions']:
+            long_store.append(
+                {'comment': k,
+                 'emoji': reaction,
+                 'channel': channel_mapping.get(v['channel'], 'private'),
+                 'time': float(v['time']),
+                 'user': user_dict.get(v.get('user', 'None'), 'bot'),
+                 'type': v['type']}
+            )
 
-user_id = 'U0L26L3FE'
-
-user_dict = {i['id']: i['profile']['display_name']
-             for i in user_list['members']}
-
-channel_mapping = {channel['channel']['id']: channel['channel']['name']
-                   for channel in channel_info if 'channel' in channel}
+    long_data = pd.DataFrame(long_store)
+    return long_data
