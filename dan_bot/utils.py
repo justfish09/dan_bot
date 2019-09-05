@@ -100,7 +100,7 @@ def process_pred(sentence, channel, user, model_class):
         model_class.channel_encoder(),
         model_class.user_encoder(),
         model_class.emoji_labels()
-    ) if score > random() / 1.5]
+    ) if score > random()]
 
 
 def text_to_wordlist(text, remove_stopwords=False, stem_words=False):
