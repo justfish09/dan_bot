@@ -1,11 +1,13 @@
 from setuptools import find_packages, setup
 
 install_requires = [
+    'cython==0.28.5',
+    'pkgconfig',
     'numpy==1.16.1',
-    'sklearn',
+    'scikit-learn',
     'pandas',
     'keras==2.2.4',
-    'tensorflow',
+    'tensorflow==1.12.0',
     'slackclient==1.3.0',
     'vaderSentiment',
     'nltk',

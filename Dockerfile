@@ -1,4 +1,8 @@
-FROM tiangolo/python-machine-learning:python3.6
+# for raspberry pi
+
+FROM azogue/py36_base:rpi3
+
+RUN apt install libhdf5-dev
 
 COPY setup.py setup.py
 
