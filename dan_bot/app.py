@@ -1,12 +1,13 @@
+#!/bin/sh
 import time
 import logging
 
+from pathlib import Path
 from websocket import WebSocketConnectionClosedException
 
-from utils import text_to_wordlist, sub_user, process_pred
+from utils import text_to_wordlist, sub_user, load_global_model, load_pickle
 from slackbot_client import slack_client
 from nn_classifier import NnClassifier
-
 
 def react_with_emoji(emoji, event):
     slack_client.api_call(
@@ -17,7 +18,7 @@ def react_with_emoji(emoji, event):
     )
 
 
-def connect_and_listen(model_class):
+def connect_and_listen(global_model):
     connection = slack_client.rtm_connect()
     if connection:
         while True:
@@ -26,18 +27,14 @@ def connect_and_listen(model_class):
                 for event in events:
                     try:
                         if ('channel' in event and 'text' in event and event.get('type') == 'message'):
-                            channel = model_class.channel_mapping().get(
-                                event['channel'], 'london')
-                            user = model_class.user_dict().get(event.get('user', ''), 'richardf')
-
                             msg_text = sub_user(
-                                event['text'], model_class.user_dict())
+                                event['text'], global_model.user_dict)
                             clean_msg = text_to_wordlist(msg_text)
 
                             logging.debug("Predicting for comment: %s \n channel: %s \n user: % s" % (
-                                clean_msg, channel, user))
-                            prediction = process_pred(
-                                clean_msg, channel, user, model_class)
+                                clean_msg, event['channel'], event.get('user', '')))
+                            prediction = global_model.predict_emojis(
+                                clean_msg, event['channel'], event.get('user', ''))
                             logging.debug("Result: %s" % prediction)
 
                             for emoji in prediction:
@@ -56,8 +53,10 @@ def connect_and_listen(model_class):
 
 def main():
     logging.basicConfig(level=logging.DEBUG)
-    model_class = NnClassifier()
-    return connect_and_listen(model_class)
+    mod_path = Path(__file__).parent
+    path_to_file = (mod_path / '../input_data')
+    global_model = load_global_model(str(path_to_file / 'dan_bot.zip'))
+    return connect_and_listen(global_model)
 
 
 if __name__ == '__main__':

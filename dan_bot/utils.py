@@ -1,8 +1,10 @@
 import re
 import pickle
+import gzip
+import dill
+
 import numpy as np
 import logging
-import keras.metrics
 import pandas as pd
 
 
@@ -15,10 +17,9 @@ from operator import itemgetter
 
 from nltk.corpus import stopwords
 from nltk.stem import SnowballStemmer
-from keras import backend as K
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
-from s3_client import S3Client
+from dan_bot.s3_client import S3Client
 
 
 analyser = SentimentIntensityAnalyzer()
@@ -26,82 +27,9 @@ analyser = SentimentIntensityAnalyzer()
 user_id = 'U0L26L3FE'
 
 
-def f1(y_true, y_pred):
-    def recall(y_true, y_pred):
-        """Recall metric.
-
-        Only computes a batch-wise average of recall.
-
-        Computes the recall, a metric for multi-label classification of
-        how many relevant items are selected.
-        """
-        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-        possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
-        recall = true_positives / (possible_positives + K.epsilon())
-        return recall
-
-    def precision(y_true, y_pred):
-        """Precision metric.
-
-        Only computes a batch-wise average of precision.
-
-        Computes the precision, a metric for multi-label classification of
-        how many selected items are relevant.
-        """
-        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-        predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
-        precision = true_positives / (predicted_positives + K.epsilon())
-        return precision
-    precision = precision(y_true, y_pred)
-    recall = recall(y_true, y_pred)
-    return 2*((precision*recall)/(precision+recall+K.epsilon()))
-
-
-keras.metrics.f1 = f1
-
-
 def sentiment_transform(x):
     as_dict = analyser.polarity_scores(x)
     return [as_dict['neg'], as_dict['neu'], as_dict['pos']]
-
-
-def process_pred_specified_models(
-        sentence,
-        channel,
-        user,
-        model,
-        vectorizer,
-        channel_encoder,
-        user_encoder,
-        y_cols):
-    xpred = vectorizer.transform([sentence])
-    new_x = np.concatenate(
-        (
-            xpred.toarray(),
-            np.array([sentiment_transform(sentence)]),
-            encoder_predict(channel_encoder, channel),
-            encoder_predict(user_encoder, user)
-        ), axis=1)
-    pred = model.predict(new_x)[0]
-    return sorted([
-        (col_name.split('emoji_')[-1], score)
-        for col_name, score in zip(y_cols, pred)
-        if score > 0.05
-    ], key=lambda x: x[1])
-
-
-def process_pred(sentence, channel, user, model_class):
-    return [emoji for emoji, score in process_pred_specified_models(
-        sentence,
-        channel,
-        user,
-        model_class.load_classifier(),
-        model_class.vectorizer(),
-        model_class.channel_encoder(),
-        model_class.user_encoder(),
-        model_class.emoji_labels()
-    ) if score > random()]
-
 
 def text_to_wordlist(text, remove_stopwords=False, stem_words=False):
     # Clean the text, with the option to remove stopwords and to stem words.
@@ -186,6 +114,11 @@ def save_pickle(obj, file_name):
     with open(path_to_file / file_name, 'wb') as f:
         pickle.dump(obj, f)
 
+def load_global_model(filename):
+    print('loading...', filename)
+    with gzip.open(filename, 'rb') as f:
+        return dill.load(f)
+
 
 def load_pickle(file_name):
     try:
@@ -207,58 +140,3 @@ def load_pickle(file_name):
         except Exception as e:
             print(e)
 
-
-def process_pkl(channel_mapping, user_dict):
-    mod_path = Path(__file__).parent
-    path_to_file = (mod_path / '../input_data/dan_bot_messages.pkl').resolve()
-    with open(path_to_file, 'rb') as f:
-        message_list = pickle.load(f)
-        print('number of msgs loaded: ', len(message_list))
-
-    store = {}
-    emoji_count = defaultdict(int)
-
-    for msg in message_list:
-        try:
-            if 'message' in msg:
-                msg_type, msg_info, channel = itemgetter(
-                    'type', 'message', 'channel')(msg)
-                msg_info_type, msg_text, msg_reactions, msg_time = itemgetter(
-                    'type', 'text', 'reactions', 'ts')(msg['message'])
-                if 'message' in msg and msg_text.strip != '':
-                    msg_text = sub_user(msg_text, user_dict)
-                    clean_msg = text_to_wordlist(msg_text)
-                    store[clean_msg] = {}
-                    store[clean_msg]['reactions'] = [clean_reaction(reaction['name']) for reaction in msg_reactions if (
-                        user_id in reaction['users'] or 'U144M1H4Z' in reaction['users'])]
-                    store[clean_msg]['time'] = msg_time
-                    store[clean_msg]['type'] = 'message'
-                    store[clean_msg]['joined_reactions'] = '|'.join(
-                        store[clean_msg]['reactions'])
-                    store[clean_msg]['channel'] = channel
-                    store[clean_msg]['type'] = msg['type']
-                    if 'user' in msg['message']:
-                        store[clean_msg]['user'] = msg['message']['user']
-                    elif 'bot_id' in msg['message']:
-                        store[clean_msg]['user'] = msg['message']['bot_id']
-                    for emoji in store[clean_msg]:
-                        emoji_count[emoji] += 1
-            elif 'file' in msg:
-                continue
-        except Exception as e:
-            print(e)
-
-    long_store = []
-    for k, v in store.items():
-        for reaction in v['reactions']:
-            long_store.append(
-                {'comment': k,
-                 'emoji': reaction,
-                 'channel': channel_mapping.get(v['channel'], 'private'),
-                 'time': float(v['time']),
-                 'user': user_dict.get(v.get('user', 'None'), 'bot'),
-                 'type': v['type']}
-            )
-
-    long_data = pd.DataFrame(long_store)
-    return long_data
