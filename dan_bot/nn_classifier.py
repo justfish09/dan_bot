@@ -29,15 +29,15 @@ class NnClassifier(object):
 
     def load_classifier(self):
         mod_path = Path(__file__).parent
-        path_to_file = (mod_path / '../input_data')
+        path_to_file = (mod_path / '../').resolve()
 
         if platform.machine() == 'aarch64':         # raspberry pi - use tensorflowlite
             import tflite_runtime.interpreter as tflite
-            model = tflite.Interpreter(model_path=str(path_to_file / self.lite_model_file))
+            model = tflite.Interpreter(model_path=str(path_to_file / 'tflite_model' / self.lite_model_file))
         else:
             from keras.models import load_model
             try:
-                model = load_model(str(path_to_file /  self.keras_model_file))
+                model = load_model(str(path_to_file / 'keras_model' /  self.keras_model_file))
             except Exception as e:
                 logging.info('failed to load model file, checking s3...')
                 s3_client = S3Client()
@@ -93,7 +93,7 @@ class NnClassifier(object):
             self.model = self.load_classifier()
 
         if platform.machine() == 'aarch64':
-            pred = self.predict_tf_lite(self, sentence, channel, user)
+            return self.predict_tf_lite(sentence, channel, user)
 
         else:
             pred = self.model.predict(new_x)[0]
