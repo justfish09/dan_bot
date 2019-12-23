@@ -103,25 +103,3 @@ class NnClassifier(object):
             if score > 0.05
         ], key=lambda x: x[1])
 
-
-        # if self.persist_data:
-        #     save_pickle(vectorizer, self.vectorizer_path)
-        #     save_pickle(channel_encoder, self.channel_encoder_path)
-        #     save_pickle(user_encoder, self.user_encoder_path)
-        #     save_pickle(y_cols, self.emoji_labels_path)
-        #     model.save(self.model_file)
-
-        #     converter = tf.lite.TFLiteConverter.from_keras_model(model)
-        #     tflite_model = converter.convert()
-
-        #     # for file in file_store:
-        #     mod_path = Path(__file__).parent
-        #     path_to_file = (mod_path / '../input_data')
-        #     s3_client = S3Client()
-        #     s3_client.client().upload_file(str((path_to_file / self.vectorizer_path).resolve()), s3_client.aws_bucket, 'input_data/' + self.vectorizer_path)
-        #     s3_client.client().upload_file(str((path_to_file / self.channel_encoder_path).resolve()), s3_client.aws_bucket, 'input_data/' + self.channel_encoder_path)
-        #     s3_client.client().upload_file(str((path_to_file / self.user_encoder_path).resolve()), s3_client.aws_bucket, 'input_data/' + self.user_encoder_path)
-        #     s3_client.client().upload_file(str((path_to_file / self.emoji_labels_path).resolve()), s3_client.aws_bucket, 'input_data/' + self.emoji_labels_path)
-        #     s3_client.client().upload_file(str((mod_path / self.model_file).resolve()), s3_client.aws_bucket, 'my_model.h5')
-        #     s3_client.client().upload_file(str((mod_path / self.lite_model_file).resolve()), s3_client.aws_bucket, 'my_model.h5')
-

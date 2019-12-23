@@ -156,7 +156,7 @@ def train_and_save(save_to_s3=True):
                     kernel_regularizer=regularizers.l2(0.)))
     model.add(Dropout(0.5))
     model.add(Dense(Ytrain.shape[1]))
-    model.add(Activation('sigmoid'))
+    model.add(Activation('softmax'))
 
     model.compile(loss='categorical_crossentropy',
                   optimizer='adam', metrics=['accuracy'])
@@ -176,7 +176,7 @@ def train_and_save(save_to_s3=True):
         verbose=1,
         validation_data=(Xtest, Ytest),
         class_weight=weights,
-        callbacks=[early_stopping]
+        # callbacks=[early_stopping]
     )
     score = model.evaluate(Xtest, Ytest, batch_size=batch_size, verbose=1)
     print('Test loss:', score[0])
