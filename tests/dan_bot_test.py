@@ -29,22 +29,25 @@ path_to_file = (mod_path / '../input_data')
 global_model = load_global_model(str(path_to_file / 'dan_bot.zip'))
 
 for sentence in test_sentences:
+    features = {
+        'comment': [sentence],
+        'channel': ['phat_data_public'],
+        'user': ['donovan.thomson']
+    }
+
     print(
         'keras model: ',
-        global_model.predict_emojis(
-                             sentence,
-                             'phat_data_public',
-                             'richardf'
-                            )
+        global_model.predict_emojis(features)
     )
 
 for sentence in test_sentences:
+    features = {
+        'comment': [sentence],
+        'channel': ['phat_data_public'],
+        'user': ['steven.perianen']
+    }
     print(
         'tflite model: ',
-        global_model.predict_tf_lite(
-                             sentence,
-                             'phat_data_public',
-                             'richardf'
-                            )
+        global_model.predict_tf_lite(features)
     )
 

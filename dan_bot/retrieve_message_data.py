@@ -1,9 +1,16 @@
-from operator import itemgetter
+import os
+import sys
 import pickle
-from utils import user_id
-from slackbot_client import slack_client
 import time
+
 from pathlib import Path
+from operator import itemgetter
+
+from dan_bot.utils import user_id
+from dan_bot.slackbot_client import slack_client
+
+THIS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
+sys.path = [THIS_DIR] + sys.path
 
 
 def retrieve_reaction_data(user_id):
@@ -36,15 +43,36 @@ def retrieve_reaction_data(user_id):
     return message_info
 
 
-def main():
+def save_users():
+    users_response = slack_client.api_call('users.list')
+    data = users_response['members']
+    with open(f'{THIS_DIR}/input_data/users.pkl', 'wb') as f:
+        pickle.dump(data, f)
+
+
+def save_channels():
+    channels_response = slack_client.api_call('channels.list')
+    data = channels_response['channels']
+    with open(f'{THIS_DIR}/input_data/channel_info.pkl', 'wb') as f:
+        pickle.dump(data, f)
+
+
+def save_reactions():
     user_msgs = retrieve_reaction_data(user_id)
     other_msgs = retrieve_reaction_data('U144M1H4Z')
-    all_msgs = [*user_msgs, *other_msgs]
-
-    dir_path = Path(__file__)
-    input_path = (dir_path / '../../input_data/dan_bot_messages.pkl').resolve()
-    with open(input_path, 'wb') as f:
+    mikes_msgs = retrieve_reaction_data('UC0EEMCPN')
+    all_msgs = [*user_msgs, *other_msgs, *mikes_msgs]
+    with open(f'{THIS_DIR}/input_data/dan_bot_messages.pkl', 'wb') as f:
         pickle.dump(all_msgs, f)
+
+
+def main():
+    print('saving users')
+    # save_users()
+    print('saving channels')
+    # save_channels()
+    print('saving reactions')
+    save_reactions()
 
 
 if __name__ == '__main__':

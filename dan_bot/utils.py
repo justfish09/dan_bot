@@ -22,14 +22,23 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from dan_bot.s3_client import S3Client
 
 
-analyser = SentimentIntensityAnalyzer()
-
+SENTIMENT_ANALYSER = SentimentIntensityAnalyzer()
 user_id = 'U0L26L3FE'
 
 
-def sentiment_transform(x):
-    as_dict = analyser.polarity_scores(x)
-    return [as_dict['neg'], as_dict['neu'], as_dict['pos']]
+class SentimentVectorizer(object):
+    @staticmethod
+    def fit(data):
+        return
+
+    @staticmethod
+    def transform(data):
+        store = []
+        for comment in data:
+            as_dict = SENTIMENT_ANALYSER.polarity_scores(comment)
+            store.append(np.array([as_dict['neg'], as_dict['neu'], as_dict['pos']]))
+        return np.array(store)
+
 
 def text_to_wordlist(text, remove_stopwords=False, stem_words=False):
     # Clean the text, with the option to remove stopwords and to stem words.
