@@ -7,7 +7,7 @@ install_requires = [
     'scikit-learn',
     'pandas',
     'keras==2.2.4',
-    'tensorflow==1.12.0',
+    'tensorflow==2.5.3',
     'slackclient==1.3.0',
     'vaderSentiment',
     'nltk',
